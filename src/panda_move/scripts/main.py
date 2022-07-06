@@ -28,7 +28,7 @@ import sample.test_15_predict3_v2
 
 KB_PATH = dirname(__file__) + '/task_planning/knowledge_base.yaml'
 
-def get_network_output(file_path):
+def get_network_output(file_pathf):
     """
     input
     - file_path : file path of network output
@@ -235,12 +235,12 @@ def set_ingredients(obj_state, kb, ings):
     return using_objects
 
 def make_task_planner(problem, objects, knowledge_base, new_objs):
-    sandwich_problem = StripsProblem(problem)
-    cooking_domain = CookingDomain(objects, knowledge_base, new_objs)
-    planning_problem = ForwardPlanner(cooking_domain, sandwich_problem)
-    searcher = AStarSearcher(planning_problem)
+    sandwich_problem = StripsProblem(problem) #initial state 와 goal설정 #return하는것은 없는데?
+    cooking_domain = CookingDomain(objects, knowledge_base, new_objs) #action들을 가져옴
+    planning_problem = ForwardPlanner(cooking_domain, sandwich_problem) #parameter들 initialize
+    searcher = AStarSearcher(planning_problem) #return하는것이 없다?
 
-    return searcher
+    return searcher 
 
 def make_obj_state(file_path):
     """
@@ -392,7 +392,7 @@ def run_test_set():
             # task plan
             task_planner = make_task_planner(problem, using_objects, knowledge_base, new_objs)
             start = time.time()
-            success = task_planner.search()
+            success = task_planner.search() #goal에 도달하면 true 아니면 false
             end = time.time()
 
             rospy.loginfo('####### task plan info #######')
@@ -417,7 +417,7 @@ def run_test_set():
                 break
         
         save_list_of_dict(result_file_path, ['task', 'subgoal', 'length', 'plan', 'success', 'time', 'num_of_expand'], task_plan_infos)
-
+        
         test_file_info = dict()
         test_file_info['test_num'] = r
         test_file_info['total_subgoal'] = len(goals)-1
@@ -542,7 +542,7 @@ def main():
                 break
 
             # run action_sequences
-            action_sequences = [action.split('/') for action in task_planner.solution.to_str().split(" -> ") if action]
+            action_sequences = [action.split('/') for action in task_planner.solution.to_str().split(" -> ") if action] #
             if use_moveit:
                 # success = False
                 for i, action in enumerate(action_sequences):

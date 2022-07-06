@@ -547,14 +547,28 @@ class PoseLevelMotion(object):
             return plan
 
 def main():
-    pose_test = PoseLevelMotion()
-    raw_input("temp1")
-    pose_test.add_box('box',[0.3, 0, 0.5, 0, 0, 0], (0.06, 0.06, 0.05))
-    raw_input("temp2") 
-    pose_test.hold_object('box', 0.03)
-    raw_input("temp3")
-    pose_test.release_object('box')
-	
-
+    f_test = PoseLevelMotion()
+    raw_input()
+    f_test.add_box("box", [0.45, -0.1, 0.415,0,0,0], (0.2, 0.03, 0.02))
+    raw_input()
+    f_test.move_to(list_to_pose([0.3, 0.1, 0.5, 0, 0, 0]),False)
+    #f_test.move_to_object(list_to_pose([aaa.x, aaa.y, aaa.z, 0, -pi, -pi/2]))
+    raw_input()
+    for i in range(4):
+        f_test.linear_motion("z", -0.15)
+        f_test.linear_motion("z", 0.15)
+    #f_test.attach_box("box")
+    # raw_input()
+    # f_test.linear_motion("y", 0.3)
+    # raw_input()
+    # f_test.circular_motion("z", "CW", 0.1, 360)
+    # raw_input()
+    # f_test.circular_motion("y", "CW", 0.1, 360)
+    # raw_input()
+    # f_test.circular_motion("x", "CW", 0.1, 360)
+    # raw_input()
+    # f_test.detach_box("box1")
+    # raw_input()
+    # f_test.linear_motion("z", 0.2)
 if __name__ == '__main__':
     main()

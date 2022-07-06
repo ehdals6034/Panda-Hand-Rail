@@ -1,20 +1,20 @@
 
 "use strict";
 
+let Hand = require('./Hand.js')
+let MotionCheck = require('./MotionCheck.js')
+let Init = require('./Init.js')
 let Sync = require('./Sync.js')
 let NewState = require('./NewState.js')
-let MotionCheck = require('./MotionCheck.js')
-let ActionSequences = require('./ActionSequences.js')
-let Init = require('./Init.js')
-let Hand = require('./Hand.js')
 let Plan = require('./Plan.js')
+let ActionSequences = require('./ActionSequences.js')
 
 module.exports = {
+  Hand: Hand,
+  MotionCheck: MotionCheck,
+  Init: Init,
   Sync: Sync,
   NewState: NewState,
-  MotionCheck: MotionCheck,
-  ActionSequences: ActionSequences,
-  Init: Init,
-  Hand: Hand,
   Plan: Plan,
+  ActionSequences: ActionSequences,
 };

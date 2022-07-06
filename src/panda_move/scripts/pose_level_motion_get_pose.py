@@ -132,7 +132,6 @@ class LowLevelMotion(object):
         oc.absolute_y_axis_tolerance = 0.01
         oc.absolute_z_axis_tolerance = 0.01
         oc.weight = 10
-        consts.orientation_constraints = [oc]
         move_group.set_path_constraints(consts)
 
     def move_to(self, pose_goal, ori_constraint):

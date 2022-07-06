@@ -7,5 +7,4 @@
 # new environment variables
 
 # modified environment variables
-export LD_LIBRARY_PATH='/opt/ros/melodic/lib:/usr/lib/x86_64-linux-gnu:/usr/lib/i386-linux-gnu'
 export PWD='/ros_ws/build'

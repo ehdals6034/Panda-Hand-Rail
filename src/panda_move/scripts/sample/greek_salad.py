@@ -1,3 +1,4 @@
+#-*- encoding: utf-8 -*-
 ###########################################################
 test_file_name = 'test_greek_salad_v2.csv'
 

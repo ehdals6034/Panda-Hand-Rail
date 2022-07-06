@@ -6,7 +6,7 @@ import tf
 import sys
 import os
 import copy
-import rospy #rospy is a pure Python client library for ROS => rosnode사용
+import rospy #print vs rospy.loginfo in ROS 왜 구분해서 사용
 import yaml
 import numpy as np
 import math as m
@@ -118,6 +118,88 @@ class ObjectLevelMotion(PoseLevelMotion): #poselevelmotion을 상속받음
         except Exception as e:
             rospy.logerr(e)
 
+
+    def _select_pose_from_area(self, obj, obj_to_area):
+        candidate_poses = []
+        feasible_poses = []
+        selected_pose = None
+
+        # update place pose state
+        place_available, _ = self._update_place_pose_state()
+        print('-'*30)
+        print(place_available)
+
+        # candidate_poses
+        candidate_poses = self.place_area_poses[obj_to_area]
+        print('candidate_poses', candidate_poses)
+
+        # feasible_poses
+        # place_pose_state에 없다면?
+        for pose in candidate_poses:
+            if not place_available[pose]: #false 이면 실행 #현재 place_available인 아닌 pose에 대해서
+                feasible_poses.append(pose)
+        print('feasible_poses', feasible_poses)
+
+        # selected_pose
+        if feasible_poses:
+            selected_pose = random.choice(feasible_poses)    #랜덤하게 pose를 줌
+        print('selected_pose', selected_pose)
+        print('-'*30)
+
+        return selected_pose
+
+ 
+    #return which objects are located at place poses => 함수 안 함수 구조
+    #place poses에 어떤 물체들이 놓여져 있는지 return
+    #activated(initialize할 때 spawn) <=> deactivated(나중에 spawn)
+    def _update_place_pose_state(self):
+        place_pose_state = {}
+        place_thresh = 0.1
+        
+        rospy.loginfo('wait for update_place_pose_state') #loginfo 함수 check
+        time.sleep(0.7)
+
+        def distance(p1, p2): 
+            return m.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+
+        # get collision object poses from Planing Scene 
+        # 딕션어리 형태로 collision object pose들을 가져옴
+        obj_poses = dict() 
+        for obj in self.objects['activated']: #activated인것에 대해서
+            obj_pose = self.get_object_pose(obj)
+            rospy.loginfo("obj={}, obj_pose={}".format(obj, obj_pose))
+            if obj_pose: #왜 이렇게? 그냥 바로밑에 안쓰고
+                obj_poses[obj] = obj_pose
+            else:
+                rospy.logerr("self.objects", self.objects)
+                exit()
+
+        for key, val in self.placement_yaml.items():
+            place_pose_state[key] = [] #placement_yaml의 key값들을 이용하여 빈 list를 만든다.
+            # calculate xy_dist
+            for obj, obj_pose in obj_poses.items():
+                obj_type = self.instance_type[obj]
+                place_pose = self._make_place_pose(obj_type)
+                obj_place_pose = utils.concatenate_to_pose_list(obj_pose, place_pose)
+                xy_dist = distance(val['pose'], obj_place_pose)
+                if xy_dist < place_thresh:
+                    # bottom = obj_place_pose[2] - self.obj_stl_yaml[obj_type]['thickness'][0]
+                    bottom = obj_place_pose[2] #place_pose를 bottom으로 가져옴
+                    place_pose_state[key].append({'name': obj, 'z': bottom}) #apppend
+            
+            # sort by z value
+            rospy.loginfo("^"*30) 
+            if place_pose_state[key]: #key값이 true인것에 대해서 
+                rospy.loginfo("key={}, val={}".format(key, place_pose_state[key]))
+                sorted_obj = sorted(place_pose_state[key], key=lambda x: x.get('z'))
+                place_pose_state[key] = [obj['name'] for obj in sorted_obj]       
+        
+        return place_pose_state, obj_poses.keys()
+
+
+
+
+
     def _arrange(self, obj_name, obj_type, placement): #check
         try:
             placement_pose = self.placement_yaml[placement]['pose']
@@ -137,7 +219,7 @@ class ObjectLevelMotion(PoseLevelMotion): #poselevelmotion을 상속받음
         except Exception as e:
             rospy.logerr(e)
 
-
+    #thickness와 orient를 고려하여 place pose를 설정
     def _make_place_pose(self, obj_type):
         if 'place_pos' in self.obj_pose_yaml[obj_type].keys():
             place_pos = self.obj_pose_yaml[obj_type]['place_pos']
@@ -147,89 +229,6 @@ class ObjectLevelMotion(PoseLevelMotion): #poselevelmotion을 상속받음
         place_pose = place_pos + place_orient
 
         return place_pose
-
-
-
-
-    def _select_pose_from_area(self, obj, obj_to_area):
-        candidate_poses = []
-        feasible_poses = []
-        selected_pose = None
-
-        # update place pose state
-        place_available, _ = self._update_place_pose_state()
-        print('-'*30)
-        print(place_available)
-
-        # candidate_poses
-        candidate_poses = self.place_area_poses[obj_to_area]
-        print('candidate_poses', candidate_poses)
-
-        # feasible_poses
-        # place_pose_state에 없다면?
-        for pose in candidate_poses:
-            if not place_available[pose]:
-                feasible_poses.append(pose)
-        print('feasible_poses', feasible_poses)
-
-        # selected_pose
-        if feasible_poses:
-            selected_pose = random.choice(feasible_poses)        
-        print('selected_pose', selected_pose)
-        print('-'*30)
-
-        return selected_pose
-
- 
-    #return which objects are located at place poses => 함수 안 함수 구조
-    #place poses에 어떤 물체들이 놓여져 있는지 return
-    def _update_place_pose_state(self):
-        place_pose_state = {}
-        place_thresh = 0.1
-        
-        rospy.loginfo('wait for update_place_pose_state') #loginfo 함수 check
-        time.sleep(0.7)
-
-        def distance(p1, p2): 
-            return m.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
-
-        # get collision object poses from Planing Scene 
-        # 딕션어리 형태로 collision object pose들을 가져옴
-        obj_poses = dict() 
-        for obj in self.objects['activated']:
-            obj_pose = self.get_object_pose(obj)
-            rospy.loginfo("obj={}, obj_pose={}".format(obj, obj_pose))
-            if obj_pose:
-                obj_poses[obj] = obj_pose
-            else:
-                rospy.logerr("self.objects", self.objects)
-                exit()
-
-        for key, val in self.placement_yaml.items():
-            place_pose_state[key] = []
-            
-            # calculate xy_dist
-            for obj, obj_pose in obj_poses.items():
-                obj_type = self.instance_type[obj]
-                place_pose = self._make_place_pose(obj_type)
-                obj_place_pose = utils.concatenate_to_pose_list(obj_pose, place_pose)
-                xy_dist = distance(val['pose'], obj_place_pose)
-                if xy_dist < place_thresh:
-                    # bottom = obj_place_pose[2] - self.obj_stl_yaml[obj_type]['thickness'][0]
-                    bottom = obj_place_pose[2] #place_pose를 bottom으로 가져옴
-                    place_pose_state[key].append({'name': obj, 'z': bottom})
-            
-            # sort by z value
-            rospy.loginfo("^"*30) #??
-            if place_pose_state[key]:
-                rospy.loginfo("key={}, val={}".format(key, place_pose_state[key]))
-                sorted_obj = sorted(place_pose_state[key], key=lambda x: x.get('z'))
-                place_pose_state[key] = [obj['name'] for obj in sorted_obj]       
-        
-        return place_pose_state, obj_poses.keys()
-
-
-
 
 
 
@@ -480,6 +479,7 @@ class ObjectLevelMotion(PoseLevelMotion): #poselevelmotion을 상속받음
 
         return current_state
 
+
     #함수 안 함수
     def run(self, action):
         def marker_msg(action):
@@ -551,77 +551,6 @@ class ObjectLevelMotion(PoseLevelMotion): #poselevelmotion을 상속받음
         return success, ola_info
 
     ### Object Level Motion Method Start ###
-    def pick_up(self, obj):
-        #obj_type을 가져옴
-        obj_type = self.instance_type[obj]
-
-        mp_infos = []
-        
-        # Parameter
-        # 다음 4개의 parameter를 초기에 설정
-        pre_dist = 0.1
-        post_dist = 0.1 # 0.2
-        grasp_size = self.obj_pose_yaml[obj_type]['grasp_size']
-        grasp_pose = self.obj_pose_yaml[obj_type]['grasp_pose']
-        
-        # Move to pre-grasp pose
-        obj_pose = self.get_object_pose(obj)
-        pre_dist_pose = [0, 0, -pre_dist, 0, 0, 0, 1]
-        #pre-pick_up motion
-        pre_pose = utils.concatenate_to_pose(obj_pose, grasp_pose, pre_dist_pose) 
-        temp_plan, mp_info = self.move_to(pre_pose, False)
-        mp_infos.append(mp_info)
-
-        if not mp_info['success']:
-            return False, mp_infos
-        # Service request to Unity
-        # Unity에 적용?
-        self.panda_plan(temp_plan)
-        self.scene_sync()
-
-        # Move to grasp pose
-        # end-effector를 조절
-        temp_plan, mp_info = self.linear_motion([0, 0, pre_dist], True, "eef")
-        mp_infos.append(mp_info)
-        if not mp_info['success']:
-            return False, mp_infos
-        # Service request to Unity
-        self.panda_plan(temp_plan)
-        self.scene_sync()
-        
-        # Get object hierarchy
-        # 이 부분 check
-        obj_hierarchy = [obj] #object가 들어있는 list로 만든다?
-        if obj in self.contain_objects.keys():
-            obj_hierarchy += copy.deepcopy(self.contain_objects[obj])
-        rospy.loginfo("obj_hierarchy = {}".format(obj_hierarchy))
-        
-        # Grasp target object
-        # 위에서 구한 obj_hierarchy를 이용하여 hold
-        _, mp_info = self.hold_object(obj_hierarchy, grasp_size)
-        mp_infos.append(mp_info)
-        if not mp_info['success']:
-            return False, mp_infos        
-        # Service request to Unity
-        self.hand_sync(obj, grasp_size)
-
-        # Change object state
-        for obj in obj_hierarchy: #obj_hierarchy에 대해서
-            self.objects['activated'].remove(obj)
-            self.objects['attached'].append(obj)
-
-        # Move to post-grasp pose
-        temp_plan, mp_info = self.linear_motion([0, 0, post_dist], True)
-        mp_infos.append(mp_info)
-        if not mp_info['success']:
-            return False, mp_infos
-        # Service request to Unity
-        self.panda_plan(temp_plan)
-        self.scene_sync()
-        
-        #최종적으로 mp_infos를 결과값으로 받음
-        return True, mp_infos
-
     def place_to_pose(self, obj, obj_to_pose):
         obj_type = self.instance_type[obj]
 
@@ -700,6 +629,81 @@ class ObjectLevelMotion(PoseLevelMotion): #poselevelmotion을 상속받음
             return True and success, mp_infos
         else:
             return False, []
+
+
+
+    def pick_up(self, obj):
+        #obj_type을 가져옴
+        obj_type = self.instance_type[obj]
+
+        mp_infos = []
+        
+        # Parameter
+        # 다음 4개의 parameter를 초기에 설정
+        pre_dist = 0.1
+        post_dist = 0.1 # 0.2
+        grasp_size = self.obj_pose_yaml[obj_type]['grasp_size']
+        grasp_pose = self.obj_pose_yaml[obj_type]['grasp_pose']
+        
+        # Move to pre-grasp pose
+        obj_pose = self.get_object_pose(obj)
+        pre_dist_pose = [0, 0, -pre_dist, 0, 0, 0, 1]
+        #pre-pick_up motion
+        pre_pose = utils.concatenate_to_pose(obj_pose, grasp_pose, pre_dist_pose) 
+        temp_plan, mp_info = self.move_to(pre_pose, False)
+        mp_infos.append(mp_info)
+
+        if not mp_info['success']:
+            return False, mp_infos
+        # Service request to Unity
+        # Unity에 적용?
+        self.panda_plan(temp_plan)
+        self.scene_sync()
+
+        # Move to grasp pose
+        # end-effector를 조절
+        temp_plan, mp_info = self.linear_motion([0, 0, pre_dist], True, "eef")
+        mp_infos.append(mp_info)
+        if not mp_info['success']:
+            return False, mp_infos
+        # Service request to Unity
+        self.panda_plan(temp_plan)
+        self.scene_sync()
+        
+        # Get object hierarchy
+        # 이 부분 check
+        obj_hierarchy = [obj] #object가 들어있는 list로 만든다?
+        if obj in self.contain_objects.keys():
+            obj_hierarchy += copy.deepcopy(self.contain_objects[obj])
+        rospy.loginfo("obj_hierarchy = {}".format(obj_hierarchy))
+        
+        # Grasp target object
+        # 위에서 구한 obj_hierarchy를 이용하여 hold
+        _, mp_info = self.hold_object(obj_hierarchy, grasp_size)
+        mp_infos.append(mp_info)
+        if not mp_info['success']:
+            return False, mp_infos        
+        # Service request to Unity
+        self.hand_sync(obj, grasp_size)
+
+        # Change object state
+        for obj in obj_hierarchy: #obj_hierarchy에 대해서
+            self.objects['activated'].remove(obj)
+            self.objects['attached'].append(obj)
+
+        # Move to post-grasp pose
+        temp_plan, mp_info = self.linear_motion([0, 0, post_dist], True)
+        mp_infos.append(mp_info)
+        if not mp_info['success']:
+            return False, mp_infos
+        # Service request to Unity
+        self.panda_plan(temp_plan)
+        self.scene_sync()
+        
+        #최종적으로 mp_infos를 결과값으로 받음
+        return True, mp_infos
+
+    
     
 
     # target object를 다른 target object위에 올려쌓기
@@ -1611,6 +1615,7 @@ def main():
     #             current_state = obj_test.get_current_state()
     #             rospy.loginfo("replan!!!!!!!!!!")
     #             exit()
+
 
 
 if __name__ == '__main__':
